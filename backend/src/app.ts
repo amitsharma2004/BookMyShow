@@ -16,16 +16,22 @@ import { AuthService } from './modules/auth/auth.service';
 import { MoviesService } from './modules/movies/movies.service';
 import { TheatersService } from './modules/theaters/theaters.service';
 import { ShowsService } from './modules/shows/shows.service';
+import { BookingService } from './modules/bookings/booking.service';
 
 // Redis (US-008)
 import { createRedisClient } from './modules/redis/redis.client';
 import { RedisLockService } from './modules/redis/redis-lock.service';
+
+// Entities
+import { Booking } from './modules/bookings/entities/booking.entity';
 
 // Routers
 import { createAuthRouter } from './modules/auth/auth.router';
 import { createMoviesRouter } from './modules/movies/movies.router';
 import { createTheatersRouter } from './modules/theaters/theaters.router';
 import { createShowsRouter } from './modules/shows/shows.router';
+import { createBookingRouter } from './modules/bookings/booking.router';
+import { createPaymentRouter } from './modules/bookings/payment.router';
 
 // Custom exceptions for error handler
 import { HttpException } from './common/exceptions/http.exception';
@@ -50,31 +56,32 @@ export async function createApp() {
 
   const app = express();
 
-  // Expose redisLockService on the app for US-009 BookingService access
-  (app as any).redisLockService = redisLockService;
-
   // ── Global middleware ─────────────────────────────────────────────────────
   app.use(cors());
   app.use(express.json());
 
   // ── Wire repositories → services ─────────────────────────────────────────
-  const userRepo     = AppDataSource.getRepository(User);
-  const movieRepo    = AppDataSource.getRepository(Movie);
-  const theaterRepo  = AppDataSource.getRepository(Theater);
-  const seatRepo     = AppDataSource.getRepository(Seat);
-  const showRepo     = AppDataSource.getRepository(Show);
-  const showSeatRepo = AppDataSource.getRepository(ShowSeat);
+  const userRepo      = AppDataSource.getRepository(User);
+  const movieRepo     = AppDataSource.getRepository(Movie);
+  const theaterRepo   = AppDataSource.getRepository(Theater);
+  const seatRepo      = AppDataSource.getRepository(Seat);
+  const showRepo      = AppDataSource.getRepository(Show);
+  const showSeatRepo  = AppDataSource.getRepository(ShowSeat);
+  const bookingRepo   = AppDataSource.getRepository(Booking);
 
   const authService     = new AuthService(userRepo);
   const moviesService   = new MoviesService(movieRepo);
   const theatersService = new TheatersService(theaterRepo, seatRepo);
   const showsService    = new ShowsService(showRepo, showSeatRepo, seatRepo, movieRepo, theaterRepo);
+  const bookingService  = new BookingService(bookingRepo, showSeatRepo, redisLockService);
 
   // ── Mount routers ─────────────────────────────────────────────────────────
-  app.use('/api/v1/auth',     createAuthRouter(authService));
-  app.use('/api/v1/movies',   createMoviesRouter(moviesService));
-  app.use('/api/v1/theaters', createTheatersRouter(theatersService));
-  app.use('/api/v1/shows',    createShowsRouter(showsService));
+  app.use('/api/v1/auth',      createAuthRouter(authService));
+  app.use('/api/v1/movies',    createMoviesRouter(moviesService));
+  app.use('/api/v1/theaters',  createTheatersRouter(theatersService));
+  app.use('/api/v1/shows',     createShowsRouter(showsService));
+  app.use('/api/v1/bookings',  createBookingRouter(bookingService));
+  app.use('/api/v1/payments',  createPaymentRouter(bookingService));
 
   // ── Health check ──────────────────────────────────────────────────────────
   app.get('/health', (_req: Request, res: Response) => {
