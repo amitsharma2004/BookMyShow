@@ -1,0 +1,40 @@
+version: '3.8'
+
+# NOTE: PostgreSQL is provided by Supabase (cloud) — not included here.
+# This compose file starts Redis and Elasticsearch for local development.
+
+services:
+  redis:
+    image: redis:7.2-alpine
+    container_name: movie-reservation-redis
+    ports:
+      - '6379:6379'
+    command: redis-server --notify-keyspace-events KEx
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+    container_name: movie-reservation-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - '9200:9200'
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -f http://localhost:9200/_cluster/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  redis_data:
+  es_data:
