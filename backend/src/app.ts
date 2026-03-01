@@ -17,6 +17,10 @@ import { MoviesService } from './modules/movies/movies.service';
 import { TheatersService } from './modules/theaters/theaters.service';
 import { ShowsService } from './modules/shows/shows.service';
 
+// Redis (US-008)
+import { createRedisClient } from './modules/redis/redis.client';
+import { RedisLockService } from './modules/redis/redis-lock.service';
+
 // Routers
 import { createAuthRouter } from './modules/auth/auth.router';
 import { createMoviesRouter } from './modules/movies/movies.router';
@@ -39,7 +43,15 @@ export async function createApp() {
     await AppDataSource.initialize();
   }
 
+  // ── Redis (US-008) ────────────────────────────────────────────────────────
+  const redisClient = createRedisClient();
+  await redisClient.connect();
+  const redisLockService = new RedisLockService(redisClient);
+
   const app = express();
+
+  // Expose redisLockService on the app for US-009 BookingService access
+  (app as any).redisLockService = redisLockService;
 
   // ── Global middleware ─────────────────────────────────────────────────────
   app.use(cors());
